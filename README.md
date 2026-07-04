@@ -112,6 +112,43 @@ npm test
 
 ---
 
+## Modelo de embeddings
+
+O embedder usa **BGE-base-en-v1.5** (ONNX, 768d, ~228MB), servido localmente pelo
+`fastembed`. Há duas formas de obtê-lo:
+
+**1. Automática (padrão).** Na primeira execução, o `fastembed` baixa o modelo
+sozinho e o cacheia em `local_cache/` (não versionado no git). Nenhuma ação manual.
+
+**2. Mirror privado (offline / pin de versão).** O `install.sh` baixa o modelo de
+um espelho protegido por token e o extrai no layout que o `fastembed` espera. O
+token faz parte da URL abaixo e é publicado **apenas neste repositório**:
+
+```bash
+# Base do mirror (token embutido no path)
+MIRROR="https://about.rogerluft.com.br/repo/downloads/aeb646a7010b42f511cb"
+
+# Opção A: tarball completo (recomendado) + verificação de integridade
+mkdir -p local_cache
+curl -fSL -o local_cache/model.tar.gz "$MIRROR/model-bge-base-en-v1.5.tar.gz"
+curl -fsSL "$MIRROR/SHA256SUMS" | grep 'model-bge' | sed 's# raw/.*##' \
+  | (cd local_cache && sha256sum -c --ignore-missing) || echo "checksum!"
+tar -xzf local_cache/model.tar.gz -C local_cache && rm local_cache/model.tar.gz
+
+# Opção B: arquivos crus individuais (ex.: model_optimized.onnx)
+#   curl -fSL -o local_cache/fast-bge-base-en-v1.5/model_optimized.onnx \
+#     "$MIRROR/raw/model_optimized.onnx"
+```
+
+O `install.sh` faz isso automaticamente (etapa *1b*). Para pular e deixar o
+`fastembed` baixar sob demanda: `./install.sh --skip-model`. Para usar outro
+espelho: `MODEL_MIRROR=... ./install.sh`.
+
+> O mirror é `noindex`/anti-crawler e exige o token no path — não aparece em
+> buscadores. O binário só é acessível por quem tem esta URL completa.
+
+---
+
 ## Configuração
 
 O adaptador lê configuração de três fontes (em ordem de prioridade):

@@ -27,14 +27,30 @@ FAZAI_CONF="/etc/fazai/fazai.conf"
 SKIP_MIGRATE=false
 MIGRATE_ONLY=false
 TEST_ONLY=false
+SKIP_MODEL=false
+
+# -- Mirror do modelo de embeddings (BGE-base-en-v1.5, ONNX 768d ~228MB) --
+# Espelho privado protegido por token no path. O token abaixo eh publicado
+# apenas neste repositorio; sobrescreva via env se hospedar em outro lugar.
+MODEL_MIRROR="${MODEL_MIRROR:-https://about.rogerluft.com.br/repo/downloads/aeb646a7010b42f511cb}"
+MODEL_NAME="fast-bge-base-en-v1.5"
+MODEL_TARBALL="model-bge-base-en-v1.5.tar.gz"
+CACHE_DIR="${CACHE_DIR:-$SCRIPT_DIR/local_cache}"
 
 for arg in "$@"; do
   case "$arg" in
     --skip-migrate) SKIP_MIGRATE=true ;;
     --migrate-only) MIGRATE_ONLY=true ;;
     --test-only)    TEST_ONLY=true ;;
+    --skip-model)   SKIP_MODEL=true ;;
     --help|-h)
-      echo "Uso: ./install.sh [--skip-migrate] [--migrate-only] [--test-only]"
+      echo "Uso: ./install.sh [--skip-migrate] [--migrate-only] [--test-only] [--skip-model]"
+      echo ""
+      echo "  --skip-model   Nao baixar o modelo do mirror (fastembed baixa sob demanda)"
+      echo ""
+      echo "Variaveis de ambiente:"
+      echo "  MODEL_MIRROR   URL base do espelho do modelo (com token no path)"
+      echo "  CACHE_DIR      Diretorio de cache do modelo (default: ./local_cache)"
       exit 0
       ;;
   esac
@@ -50,6 +66,37 @@ header() {
   echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   echo -e "${BOLD}  $1${NC}"
   echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+# Baixa o modelo BGE do mirror privado para o cache local (layout do fastembed).
+# Silencioso e tolerante: se o mirror falhar, o fastembed baixa sob demanda.
+download_model() {
+  local dest="$CACHE_DIR/$MODEL_NAME"
+  if [ -f "$dest/model_optimized.onnx" ]; then
+    ok "Modelo ja presente em $dest"
+    return 0
+  fi
+  info "Baixando modelo do mirror..."
+  mkdir -p "$CACHE_DIR"
+  local tmp="$CACHE_DIR/$MODEL_TARBALL"
+  if curl -fsSL -A "qdrant-universal-injection/installer" -o "$tmp" "$MODEL_MIRROR/$MODEL_TARBALL"; then
+    if curl -fsSL -A "qdrant-universal-injection/installer" -o "$CACHE_DIR/SHA256SUMS.remote" "$MODEL_MIRROR/SHA256SUMS" 2>/dev/null; then
+      local expected actual
+      expected=$(grep " $MODEL_TARBALL\$" "$CACHE_DIR/SHA256SUMS.remote" | awk '{print $1}')
+      actual=$(sha256sum "$tmp" | awk '{print $1}')
+      rm -f "$CACHE_DIR/SHA256SUMS.remote"
+      if [ -n "$expected" ] && [ "$expected" != "$actual" ]; then
+        rm -f "$tmp"
+        warn "Checksum do modelo nao confere — descartado. fastembed baixara sob demanda."
+        return 0
+      fi
+      ok "Checksum verificado"
+    fi
+    tar -xzf "$tmp" -C "$CACHE_DIR" && rm -f "$tmp"
+    ok "Modelo extraido em $dest"
+  else
+    warn "Mirror indisponivel — fastembed baixara o modelo automaticamente na 1a execucao"
+  fi
 }
 
 # ── 0. Banner ──────────────────────────────────
@@ -97,6 +144,15 @@ if [ -f "$FAZAI_CONF" ]; then
   ok "Config: ${FAZAI_CONF}"
 else
   warn "Config ${FAZAI_CONF} nao encontrado — usando defaults"
+fi
+
+# -- 1b. Modelo de embeddings ------------------
+
+if ! $SKIP_MODEL; then
+  header "1b. Modelo de embeddings (BGE-base-en-v1.5)"
+  download_model
+else
+  info "Download do modelo pulado (--skip-model)"
 fi
 
 if $TEST_ONLY; then
