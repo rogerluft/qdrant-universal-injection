@@ -1,0 +1,38 @@
+{
+  "name": "qdrant-universal-injection",
+  "version": "1.0.0",
+  "description": "Universal middleware for Qdrant-based personality injection, semantic cache, and RAG — works with any LLM",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/proxy/server.js",
+    "dev": "npx tsx src/proxy/server.ts",
+    "init-collections": "npx tsx src/scripts/init-collections.ts",
+    "index-source": "npx tsx src/scripts/index-source.ts",
+    "migrate-embeddings": "npx tsx src/scripts/migrate-embeddings.ts",
+    "test": "npx tsx src/scripts/test-integration.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@qdrant/js-client-rest": "^1.16.2",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "fastembed": "^2.1.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "author": "Roger Luft",
+  "license": "CC-BY-SA-4.0"
+}
